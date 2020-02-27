@@ -7,3 +7,4 @@ mongoMockData.js
 .DS_Store
 .env
 scripts/dump
+yarn-error.log
