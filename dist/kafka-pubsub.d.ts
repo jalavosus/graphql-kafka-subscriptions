@@ -34,5 +34,6 @@ export declare class KafkaPubSub implements PubSubEngine {
     brokerList(): any;
     private createClient;
     private createProducer;
+    private parseMessage;
     private createConsumer;
 }

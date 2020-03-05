@@ -1,9 +1,8 @@
-import { Kafka, CompressionTypes, CompressionCodecs } from "kafkajs"
+import { Kafka, CompressionTypes, CompressionCodecs, logLevel } from "kafkajs"
 const SnappyCodec = require("./snappy")
 import { PubSubEngine } from 'graphql-subscriptions'
 import { PubSubAsyncIterator } from './pubsub-async-iterator'
 import { v4 as uuid } from 'uuid'
-import { DEFAULT_ENCODING } from 'crypto'
 
 CompressionCodecs[CompressionTypes.Snappy] = SnappyCodec
 
@@ -86,6 +85,7 @@ export class KafkaPubSub implements PubSubEngine {
     return new Kafka({
       brokers: [ `${this.options.host}:${this.options.port}` ],
       clientId: uuid(),
+      logLevel: logLevel.ERROR
     })
   }
 
@@ -96,12 +96,24 @@ export class KafkaPubSub implements PubSubEngine {
     return producer
   }
 
+  private parseMessage(message) {
+    let parsedMessage = {
+      key: message.key.toString(),
+      value: JSON.parse(message.value.toString()),
+      timestamp: message.timestamp,
+    }
+    return parsedMessage
+  }
+
   private async createConsumer(topic: string) {
     let consumer = this.kafkaClient.consumer({ groupId: uuid() })
     await consumer.connect()
     await consumer.subscribe({ topic: topic })
 
-    consumer.run({ eachMessage: async ({ topic, message }) => this.onMessage(topic, message) })
+    consumer.run({ 
+      eachMessage: async ({ topic, message }) =>
+        this.onMessage(topic, this.parseMessage(message)) 
+    })
     
     return consumer
   }

@@ -93,6 +93,7 @@ var KafkaPubSub = (function () {
         return new kafkajs_1.Kafka({
             brokers: [this.options.host + ":" + this.options.port],
             clientId: uuid_1.v4(),
+            logLevel: kafkajs_1.logLevel.ERROR
         });
     };
     KafkaPubSub.prototype.createProducer = function () {
@@ -110,6 +111,14 @@ var KafkaPubSub = (function () {
             });
         });
     };
+    KafkaPubSub.prototype.parseMessage = function (message) {
+        var parsedMessage = {
+            key: message.key.toString(),
+            value: JSON.parse(message.value.toString()),
+            timestamp: message.timestamp,
+        };
+        return parsedMessage;
+    };
     KafkaPubSub.prototype.createConsumer = function (topic) {
         return __awaiter(this, void 0, void 0, function () {
             var consumer;
@@ -124,12 +133,14 @@ var KafkaPubSub = (function () {
                         return [4, consumer.subscribe({ topic: topic })];
                     case 2:
                         _a.sent();
-                        consumer.run({ eachMessage: function (_a) {
+                        consumer.run({
+                            eachMessage: function (_a) {
                                 var topic = _a.topic, message = _a.message;
                                 return __awaiter(_this, void 0, void 0, function () { return __generator(this, function (_b) {
-                                    return [2, this.onMessage(topic, message)];
+                                    return [2, this.onMessage(topic, this.parseMessage(message))];
                                 }); });
-                            } });
+                            }
+                        });
                         return [2, consumer];
                 }
             });
