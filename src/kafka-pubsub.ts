@@ -1,14 +1,16 @@
-import * as Kafka from 'node-rdkafka'
+import { Kafka, CompressionTypes, CompressionCodecs } from "kafkajs"
+const SnappyCodec = require("./snappy")
 import { PubSubEngine } from 'graphql-subscriptions'
-import * as Logger from 'bunyan';
-import { createChildLogger } from './child-logger';
 import { PubSubAsyncIterator } from './pubsub-async-iterator'
+import { v4 as uuid } from 'uuid'
+import { DEFAULT_ENCODING } from 'crypto'
+
+CompressionCodecs[CompressionTypes.Snappy] = SnappyCodec
 
 export interface IKafkaOptions {
   topic: string
   host: string
   port: string
-  logger?: Logger,
   groupId?: any,
   globalConfig?: object,
 }
@@ -22,11 +24,6 @@ export interface IKafkaTopic {
   writeStream: any
 }
 
-const defaultLogger = Logger.createLogger({
-  name: 'pubsub',
-  stream: process.stdout,
-  level: 'info'
-})
 
 export class KafkaPubSub implements PubSubEngine {
   protected producer: any
@@ -34,21 +31,20 @@ export class KafkaPubSub implements PubSubEngine {
   protected options: any
   protected subscriptionMap: { [subId: number]: [string, Function] }
   protected channelSubscriptions: { [channel: string]: Array<number> }
-  protected logger: Logger
+  protected kafkaClient: any
 
   constructor(options: IKafkaOptions) {
     this.options = options
     this.subscriptionMap = {}
     this.channelSubscriptions = {}
+    this.kafkaClient = this.createClient()
     this.consumer = this.createConsumer(this.options.topic)
-    this.logger = createChildLogger(
-      this.options.logger || defaultLogger, 'KafkaPubSub')
   }
 
-  public publish(payload) {
+  public publish(triggerName: string, payload: any) {
     // only create producer if we actually publish something
-    this.producer = this.producer || this.createProducer(this.options.topic)
-    return this.producer.write(new Buffer(JSON.stringify(payload)))
+    this.producer = this.producer || this.createProducer()
+    return this.producer.send({ topic: triggerName, messages: payload, compression: CompressionTypes.Snappy })
   }
 
   public subscribe(
@@ -86,46 +82,27 @@ export class KafkaPubSub implements PubSubEngine {
     return this.options.port ? `${this.options.host}:${this.options.port}` : this.options.host
   }
 
-  private createProducer(topic: string) {
-    const producer = Kafka.createWriteStream(
-        Object.assign({}, {'metadata.broker.list': this.brokerList()}, this.options.globalConfig),
-        {},
-        {topic}
-    );
-    producer.on('error', (err) => {
-      this.logger.error(err, 'Error in our kafka stream')
+  private createClient() {
+    return new Kafka({
+      brokers: [ `${this.options.host}:${this.options.port}` ],
+      clientId: uuid(),
     })
+  }
+
+  private async createProducer() {
+    let producer = this.kafkaClient.producer()
+    await producer.connect()
+
     return producer
   }
 
-  private createConsumer(topic: string) {
-    // Create a group for each instance. The consumer will receive all messages from the topic
-    const groupId = this.options.groupId || Math.ceil(Math.random() * 9999)
-    const stream = Kafka.createReadStream(
-        Object.assign(
-          {},
-          {
-            'group.id': `kafka-group-${groupId}`,
-            'metadata.broker.list': this.brokerList(),
-          },
-          this.options.globalConfig,
-        ),
-        {},
-        { topics: [topic] }
-    );
-    stream.consumer.on('data', (message) => {
-      let parsedMessage = JSON.parse(message.value.toString())
+  private async createConsumer(topic: string) {
+    let consumer = this.kafkaClient.consumer({ groupId: uuid() })
+    await consumer.connect()
+    await consumer.subscribe({ topic: topic })
 
-      // Using channel abstraction
-      if (parsedMessage.channel) {
-        const { channel, ...payload } = parsedMessage
-        this.onMessage(parsedMessage.channel, payload)
-
-      // No channel abstraction, publish over the whole topic
-      } else {
-        this.onMessage(topic, parsedMessage)
-      }
-    })
-    return stream
+    consumer.run({ eachMessage: async ({ topic, message }) => this.onMessage(topic, message) })
+    
+    return consumer
   }
 }

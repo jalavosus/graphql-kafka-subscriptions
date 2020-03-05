@@ -29,7 +29,7 @@ describe('KafkaPubSub', () => {
       id: 'test',
     }
     const subscription = await pubsub.subscribe(channel, onMessage)
-    pubsub.publish(payload)
+    pubsub.publish(channel, payload)
     expect(mockWrite).toBeCalled()
     expect(mockWrite).toBeCalledWith(new Buffer(JSON.stringify(payload)))
   })

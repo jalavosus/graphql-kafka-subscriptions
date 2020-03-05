@@ -1,19 +1,16 @@
 {
   "compilerOptions": {
-    "allowJs": false,
-    "module": "commonjs",
+    "allowJs": true,
+    "checkJs": true,
     "target": "es5",
-    "noImplicitAny": false,
     "strictNullChecks": false,
     "moduleResolution": "node",
     "removeComments": true,
-    "jsx": "react",
     "sourceMap": true,
     "declaration": true,
     "rootDir": "./src",
     "outDir": "./dist",
-    "baseUrl": ".",
-    "lib": ["es6", "esnext"]
+    "lib": ["es6", "esnext"],
+    "baseUrl": "."
   },
-  "exclude": ["node_modules", "dist"]
 }

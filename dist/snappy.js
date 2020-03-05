@@ -36,47 +36,43 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var index_1 = require("../index");
-var mockWrite = jest.fn(function (msg) { return msg; });
-var mockProducer = jest.fn(function () { return ({
-    write: mockWrite
-}); });
-var mockConsumer = jest.fn(function () { });
-var topic = 'test-topic';
-var host = 'localhost';
-var port = '9092';
-var pubsub = new index_1.KafkaPubSub({
-    topic: topic,
-    host: host,
-    port: port,
-});
-describe('KafkaPubSub', function () {
-    it('should create producer/consumers correctly', function () {
-        var onMessage = jest.fn();
-        var testChannel = 'testChannel';
-        expect(mockProducer).toBeCalledWith(topic);
-        expect(mockConsumer).toBeCalledWith(topic);
-    });
-    it('should subscribe and publish messages correctly', function () { return __awaiter(void 0, void 0, void 0, function () {
-        var channel, onMessage, payload, subscription;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    channel = 'test-channel';
-                    onMessage = jest.fn();
-                    payload = {
-                        channel: channel,
-                        id: 'test',
-                    };
-                    return [4, pubsub.subscribe(channel, onMessage)];
-                case 1:
-                    subscription = _a.sent();
-                    pubsub.publish(channel, payload);
-                    expect(mockWrite).toBeCalled();
-                    expect(mockWrite).toBeCalledWith(new Buffer(JSON.stringify(payload)));
-                    return [2];
-            }
+var snappy_1 = require("snappy");
+var XERIAL_HEADER = Buffer.from([130, 83, 78, 65, 80, 80, 89, 0]);
+var SIZE_BYTES = 4;
+var SIZE_OFFSET = 16;
+var isFrameFormat = function (buffer) { return buffer.slice(0, 8).equals(XERIAL_HEADER); };
+module.exports = function () { return ({
+    compress: function (encoder) {
+        return snappy_1.compressSync(encoder.buffer);
+    },
+    decompress: function (buffer) {
+        return __awaiter(this, void 0, void 0, function () {
+            var encoded, maxBytes, offset, size, decodedBuffers;
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!isFrameFormat(buffer)) {
+                            return [2, snappy_1.uncompressSync(buffer)];
+                        }
+                        encoded = [];
+                        maxBytes = Buffer.byteLength(buffer);
+                        offset = SIZE_OFFSET;
+                        while (offset + SIZE_BYTES <= maxBytes) {
+                            size = buffer.readUInt32BE(offset);
+                            offset += SIZE_BYTES;
+                            encoded.push(buffer.slice(offset, offset + size));
+                            offset += size;
+                        }
+                        return [4, Promise.all(encoded.map(function (encodedBuffer) { return __awaiter(_this, void 0, void 0, function () { return __generator(this, function (_a) {
+                                return [2, snappy_1.uncompressSync(encodedBuffer)];
+                            }); }); }))];
+                    case 1:
+                        decodedBuffers = _a.sent();
+                        return [2, decodedBuffers.reduce(function (result, decodedBuffer) { return Buffer.concat([result, decodedBuffer]); }, Buffer.alloc(0))];
+                }
+            });
         });
-    }); });
-});
-//# sourceMappingURL=kafka-pubsub.spec.js.map
+    },
+}); };
+//# sourceMappingURL=snappy.js.map

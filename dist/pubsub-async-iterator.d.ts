@@ -1,3 +1,4 @@
+import { $$asyncIterator } from 'iterall';
 import { PubSubEngine } from 'graphql-subscriptions/dist/pubsub-engine';
 export declare class PubSubAsyncIterator<T> implements AsyncIterator<T> {
     constructor(pubsub: PubSubEngine, eventNames: string | string[]);
@@ -7,6 +8,7 @@ export declare class PubSubAsyncIterator<T> implements AsyncIterator<T> {
         done: boolean;
     }>;
     throw(error: any): Promise<never>;
+    [$$asyncIterator](): this;
     private pullQueue;
     private pushQueue;
     private eventsArray;
